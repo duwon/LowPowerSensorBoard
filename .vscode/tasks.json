@@ -1,0 +1,107 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build IAR",
+            "type": "shell",
+            "command": "C:/Program Files (x86)/IAR Systems/Embedded Workbench 8.3/common/bin/IarBuild.exe",
+            "args": [
+                "${workspaceFolder}/EWARM/STM32L011.ewp",
+                "-make",
+                "STM32L011",
+                "-log",
+                "all"
+
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Program Flash ST-Link",
+            "type": "shell",
+            "command": "C:/Program Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
+            "args": [
+                "-c port=SWD freq=4000 ap=0 mode=UR",
+                "-w",
+                "${workspaceFolder}/EWARM/STM32L412KB/Exe/STM32L011.hex",
+                "0x08000000 ",
+                "-s"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Program Flash UART",
+            "type": "shell",
+            "command": "C:/Program Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
+            "args": [
+                "-c",
+                "port=COM10",
+                "br=115200",
+                "-w",
+                "${workspaceFolder}/EWARM/STM32L011/Exe/STM32L011.hex",
+                "0x08000000 ",
+                "--start"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Build and Prgram flash using ST-Link",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "dependsOn":[
+                "Build IAR",
+                "Program Flash ST-Link"
+            ],
+            "dependsOrder": "sequence",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Build and Prgram flash using UART",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "dependsOn":[
+                "Build IAR",
+                "Program Flash UART"
+            ],
+            "dependsOrder": "sequence",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}

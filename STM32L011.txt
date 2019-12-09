@@ -1,0 +1,120 @@
+Configuration	STM32L011
+STM32CubeMX 	5.4.0
+Date	12/10/2019
+MCU	STM32L011K4Tx
+
+
+
+PERIPHERALS	MODES	FUNCTIONS	PINS
+ADC	IN0	ADC_IN0	PA0-CK_IN
+LPUART1	Asynchronous	LPUART1_RX	PB7
+LPUART1	Asynchronous	LPUART1_TX	PB6
+RCC	Crystal/Ceramic Resonator	RCC_OSC32_IN	PC14-OSC32_IN
+RCC	Crystal/Ceramic Resonator	RCC_OSC32_OUT	PC15-OSC32_OUT
+RTC	Activate RTC Clock Source	RTC_VS_RTC_Activate	VP_RTC_VS_RTC_Activate
+RTC	Internal WakeUp	RTC_VS_RTC_WakeUp_intern	VP_RTC_VS_RTC_WakeUp_intern
+SYS	Serial_Wire	SYS_SWCLK	PA14
+SYS	Serial_Wire	SYS_SWDIO	PA13
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
+USART2	Asynchronous	USART2_RX	PA10
+USART2	Asynchronous	USART2_TX	PA9
+
+
+
+Pin Nb	PINs	FUNCTIONs	LABELs
+2	PC14-OSC32_IN	RCC_OSC32_IN	OSC_IN
+3	PC15-OSC32_OUT	RCC_OSC32_OUT	OSC_OUT
+6	PA0-CK_IN	ADC_IN0	ADC_BAT
+7	PA1	GPIO_Output	LD0
+8	PA2	GPIO_Input	SW
+9	PA3	GPIO_Input	DIP0
+10	PA4	GPIO_Input	DIP1
+11	PA5	GPIO_Input	DIP2
+12	PA6	GPIO_Input	DIP3
+13	PA7	GPIO_Input	DIP4
+14	PB0	GPIO_Input	DIP5
+15	PB1	GPIO_Input	DIP6
+18	PA8	GPIO_Input	SENSOR0
+19	PA9	USART2_TX	DEBUG_TX
+20	PA10	USART2_RX	DEBUG_RX
+21	PA11	GPIO_Input	SENSOR1
+22	PA12	GPIO_Input	SENSOR2
+23	PA13	SYS_SWDIO	SWDIO
+24	PA14	SYS_SWCLK	SWCLK
+25	PA15	GPIO_Input	COM_NRST
+26	PB3	GPIO_Input	COM_RDY
+27	PB4	GPIO_Output	CONTROL_DC12V
+28	PB5	GPIO_Output	CONTROL_DC3V
+29	PB6	LPUART1_TX	COM_TX
+30	PB7	LPUART1_RX	COM_RX
+31	PB9-BOOT0	GPIO_Input	BOOT
+PERIPHERALS	MODES	FUNCTIONS	PINS
+ADC	IN0	ADC_IN0	PA0-CK_IN
+LPUART1	Asynchronous	LPUART1_RX	PB7
+LPUART1	Asynchronous	LPUART1_TX	PB6
+RCC	Crystal/Ceramic Resonator	RCC_OSC32_IN	PC14-OSC32_IN
+RCC	Crystal/Ceramic Resonator	RCC_OSC32_OUT	PC15-OSC32_OUT
+RTC	Activate RTC Clock Source	RTC_VS_RTC_Activate	VP_RTC_VS_RTC_Activate
+RTC	Internal WakeUp	RTC_VS_RTC_WakeUp_intern	VP_RTC_VS_RTC_WakeUp_intern
+SYS	Serial_Wire	SYS_SWCLK	PA14
+SYS	Serial_Wire	SYS_SWDIO	PA13
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
+USART2	Asynchronous	USART2_RX	PA10
+USART2	Asynchronous	USART2_TX	PA9
+
+
+
+Pin Nb	PINs	FUNCTIONs	LABELs
+2	PC14-OSC32_IN	RCC_OSC32_IN	OSC_IN
+3	PC15-OSC32_OUT	RCC_OSC32_OUT	OSC_OUT
+6	PA0-CK_IN	ADC_IN0	ADC_BAT
+7	PA1	GPIO_Output	LD0
+8	PA2	GPIO_Input	SW
+9	PA3	GPIO_Input	DIP0
+10	PA4	GPIO_Input	DIP1
+11	PA5	GPIO_Input	DIP2
+12	PA6	GPIO_Input	DIP3
+13	PA7	GPIO_Input	DIP4
+14	PB0	GPIO_Input	DIP5
+15	PB1	GPIO_Input	DIP6
+18	PA8	GPIO_Input	SENSOR0
+19	PA9	USART2_TX	DEBUG_TX
+20	PA10	USART2_RX	DEBUG_RX
+21	PA11	GPIO_Input	SENSOR1
+22	PA12	GPIO_Input	SENSOR2
+23	PA13	SYS_SWDIO	SWDIO
+24	PA14	SYS_SWCLK	SWCLK
+25	PA15	GPIO_Input	COM_NRST
+26	PB3	GPIO_Input	COM_RDY
+27	PB4	GPIO_Output	CONTROL_DC12V
+28	PB5	GPIO_Output	CONTROL_DC3V
+29	PB6	LPUART1_TX	COM_TX
+30	PB7	LPUART1_RX	COM_RX
+31	PB9-BOOT0	GPIO_Input	BOOT
+
+
+
+SOFTWARE PROJECT
+
+Project Settings : 
+Project Name : STM32L011
+Project Folder : G:\내 드라이브\CloudStation\Alba\DW1903_LowPowerSensingBoard\SRC\STM32L011K4
+Toolchain / IDE : EWARM V8.32
+Firmware Package Name and Version : STM32Cube FW_L0 V1.11.2
+
+
+Code Generation Settings : 
+STM32Cube MCU packages and embedded software packs : Copy all used libraries into the project folder
+Generate peripheral initialization as a pair of '.c/.h' files per peripheral : Yes
+Backup previously generated files when re-generating : No
+Delete previously generated files when not re-generated : Yes
+Set all free pins as analog (to optimize the power consumption) : No
+
+
+Toolchains Settings : 
+Compiler Optimizations : 
+
+
+
+
+
