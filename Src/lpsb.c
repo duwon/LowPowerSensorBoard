@@ -74,6 +74,39 @@ GPIO_PinState lpsb_GetSensor(Sensor_Pin pin)
   return HAL_GPIO_ReadPin(SENSOR0_GPIO_Port, 1 << pin);
 }
 
+#pragma pack(push, 1)
+struct _comPacket
+{
+  uint16_t stx;
+  uint8_t id;
+  uint8_t sensor0;
+  uint8_t sensor1;
+  uint8_t sensor2;
+  uint8_t batLevel;
+  uint8_t checksum;
+  uint8_t etx;
+};
+#pragma pack(pop)
+
+void sendPacket(uint8_t id, bool sen0, bool sen1, bool sen2, uint8_t batLevel)
+{
+  struct _comPacket comPacket;
+
+  comPacket.stx = 0x1234;
+  comPacket.id = id;
+  comPacket.sensor0 = sen0;
+  comPacket.sensor1 = sen1;
+  comPacket.sensor2 = sen2;
+  comPacket.batLevel = batLevel;
+  comPacket.checksum = 0x99;
+  comPacket.etx = 0x43;
+
+  uint8_t *ptr;
+  ptr = (uint8_t *)&comPacket;
+  for (int i = 0; i < sizeof(comPacket); i++)
+    printf("%2X ", *ptr++);
+}
+
 void lpsb_start(void)
 {
   printUartLogo();                                         //print Logo
@@ -93,6 +126,8 @@ void lpsb_start(void)
   uint8_t sen2 = lpsb_GetSensor(SEN2);
 
   printf("Sensor %d, %d, %d\r\n", sen0, sen1, sen2);
+
+  sendPacket(lpsb_ID, sen0, sen1, sen2, lpsb_BATLevel);
 }
 
 void lpsb_while(void)
