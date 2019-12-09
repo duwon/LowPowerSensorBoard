@@ -28,6 +28,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "lpsb.h"
 
 /* USER CODE END Includes */
 
@@ -97,13 +98,14 @@ int main(void)
   MX_ADC_Init();
   MX_DMA_Init();
   /* USER CODE BEGIN 2 */
-  HAL_GPIO_WritePin(LD0_GPIO_Port, LD0_Pin, GPIO_PIN_SET);
+  lpsb_start();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    lpsb_while();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
