@@ -31,10 +31,28 @@ void printUartLogo(void)
   printf("\r\n\r\n");
 }
 
+uint8_t readID(void)
+{
+    //return GPIOA->IDR;
+    uint8_t iID = 0;
+    iID = HAL_GPIO_ReadPin(DIP6_GPIO_Port,DIP6_Pin);
+    iID = (iID<<1) + HAL_GPIO_ReadPin(DIP5_GPIO_Port,DIP5_Pin);
+    iID = (iID<<1) + HAL_GPIO_ReadPin(DIP4_GPIO_Port,DIP4_Pin);
+    iID = (iID<<1) + HAL_GPIO_ReadPin(DIP3_GPIO_Port,DIP3_Pin);
+    iID = (iID<<1) + HAL_GPIO_ReadPin(DIP2_GPIO_Port,DIP2_Pin);
+    iID = (iID<<1) + HAL_GPIO_ReadPin(DIP1_GPIO_Port,DIP1_Pin);
+    iID = (iID<<1) + HAL_GPIO_ReadPin(DIP0_GPIO_Port,DIP0_Pin);
+
+    return iID;
+}
+
 void lpsb_start(void)
 {
   printUartLogo();                                         //print Logo
   HAL_GPIO_WritePin(LD0_GPIO_Port, LD0_Pin, GPIO_PIN_SET); //LD0 LED On
+
+  uint8_t lpsb_ID = readID();
+  printf("ID: 0x%x\r\n", lpsb_ID);
 }
 
 void lpsb_while(void)
