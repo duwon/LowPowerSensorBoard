@@ -31,7 +31,7 @@ void printUartLogo(void)
   printf("\r\n\r\n");
 }
 
-uint8_t readID(void)
+uint8_t getID(void)
 {
     //return GPIOA->IDR;
     uint8_t iID = 0;
@@ -46,13 +46,29 @@ uint8_t readID(void)
     return iID;
 }
 
+uint32_t getBATLevel(void)
+{
+    if (HAL_ADCEx_Calibration_Start(&hadc, ADC_SINGLE_ENDED) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    HAL_ADC_Start(&hadc);
+    HAL_ADC_PollForConversion(&hadc, 100);
+
+    return HAL_ADC_GetValue(&hadc);
+}
+
 void lpsb_start(void)
 {
   printUartLogo();                                         //print Logo
   HAL_GPIO_WritePin(LD0_GPIO_Port, LD0_Pin, GPIO_PIN_SET); //LD0 LED On
 
-  uint8_t lpsb_ID = readID();
+  uint8_t lpsb_ID = getID();
+  uint32_t lpsb_BATLevel = getBATLevel();
+  
   printf("ID: 0x%x\r\n", lpsb_ID);
+  printf("BAT Level: %d\r\n", lpsb_BATLevel);
 }
 
 void lpsb_while(void)
