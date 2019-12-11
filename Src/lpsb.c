@@ -4,6 +4,7 @@
 #include "usart.h"
 #include "gpio.h"
 #include "adc.h"
+#include "rtc.h"
 
 #define FW_VERSION "0.1"
 
@@ -107,31 +108,56 @@ void sendPacket(uint8_t id, bool sen0, bool sen1, bool sen2, uint8_t batLevel)
     printf("%2X ", *ptr++);
 }
 
+void lpsb_EnterStanbyMode(void)
+{
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+  __HAL_RCC_PWR_CLK_ENABLE();      /* Enable Power Control clock */
+  HAL_PWREx_EnableUltraLowPower(); /* Enable Ultra low power mode */
+  HAL_PWREx_EnableFastWakeUp();    /* Enable the fast wake up from Ultra low power mode */
+
+  if (__HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET)
+  {
+    __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);      /* Clear Standby flag */
+  }
+
+  HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);   /* Disable all used wakeup sources*/
+  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);        /* Clear all related wakeup flags*/
+  HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, WAKEUP_10SEC, RTC_WAKEUPCLOCK_RTCCLK_DIV16);  /* Enable wakeup */
+
+  HAL_PWR_EnterSTANDBYMode();
+}
+
 void lpsb_start(void)
 {
-  printUartLogo();                                         //print Logo
-  HAL_GPIO_WritePin(LD0_GPIO_Port, LD0_Pin, GPIO_PIN_SET); //LD0 LED On
+  printUartLogo();                                         /* Print Logo */
+  HAL_GPIO_WritePin(LD0_GPIO_Port, LD0_Pin, GPIO_PIN_SET); /* LD0 LED On */
 
-  uint8_t lpsb_ID = getID();
+  uint8_t lpsb_ID = getID(); /* Read ID. Using DIP(S1) switch */
   uint32_t lpsb_BATLevel = getBATLevel();
 
   printf("ID: 0x%x\r\n", lpsb_ID);
   printf("BAT Level: %d\r\n", lpsb_BATLevel);
 
-  controlDCOn(DC12V);
-  controlDCOn(DC3V);
+  controlDCOn(DC12V);   /* Sensor Module power on */
+  controlDCOn(DC3V);    /* Wirelss Module power on */
 
   uint8_t sen0 = lpsb_GetSensor(SEN0);
   uint8_t sen1 = lpsb_GetSensor(SEN1);
   uint8_t sen2 = lpsb_GetSensor(SEN2);
 
-  printf("Sensor %d, %d, %d\r\n", sen0, sen1, sen2);
+  printf("Sensor %d, %d, %d\r\n", sen0, sen1, sen2);      /* make packet */
 
   sendPacket(lpsb_ID, sen0, sen1, sen2, lpsb_BATLevel);
+
+  uint16_t sending_cnt = HAL_RTCEx_BKUPRead(&hrtc,RTC_BKP_DR1); /* Read bakcup register. 16bit */
+  printf("Sening Cnt : %d \r\n",sending_cnt++);
+  HAL_RTCEx_BKUPWrite(&hrtc,RTC_BKP_DR1, sending_cnt);
 }
 
 void lpsb_while(void)
 {
   HAL_Delay(1000);
-  HAL_GPIO_TogglePin(LD0_GPIO_Port, LD0_Pin); //LD0 LED Toggle
+  HAL_GPIO_TogglePin(LD0_GPIO_Port, LD0_Pin); /* LD0 LED Toggle */
+
+  lpsb_EnterStanbyMode();
 }

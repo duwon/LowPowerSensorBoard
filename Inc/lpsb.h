@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include "main.h"
 
+#define WAKEUP_1HOUR    (7149272U)
+#define WAKEUP_1MIN     (119154U)
+#define WAKEUP_30SEC    (59577U)
+#define WAKEUP_10SEC    (19859U)
+
 void lpsb_start(void);
 void lpsb_while(void);
 
