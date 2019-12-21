@@ -34,17 +34,28 @@ void printUartLogo(void)
 
 uint8_t getID(void)
 {
-  //return GPIOA->IDR;
-  uint8_t iID = 0;
-  iID = HAL_GPIO_ReadPin(DIP6_GPIO_Port, DIP6_Pin);
-  iID = (iID << 1) + HAL_GPIO_ReadPin(DIP5_GPIO_Port, DIP5_Pin);
-  iID = (iID << 1) + HAL_GPIO_ReadPin(DIP4_GPIO_Port, DIP4_Pin);
-  iID = (iID << 1) + HAL_GPIO_ReadPin(DIP3_GPIO_Port, DIP3_Pin);
-  iID = (iID << 1) + HAL_GPIO_ReadPin(DIP2_GPIO_Port, DIP2_Pin);
-  iID = (iID << 1) + HAL_GPIO_ReadPin(DIP1_GPIO_Port, DIP1_Pin);
-  iID = (iID << 1) + HAL_GPIO_ReadPin(DIP0_GPIO_Port, DIP0_Pin);
+  uint16_t iID = HAL_RTCEx_BKUPRead(&hrtc,RTC_BKP_DR2);
+  uint8_t IDReadCount = 0;
+  printf("Backup ID : %x\r\n",iID);
+  while(iID == 0)
+  {
+    iID = HAL_GPIO_ReadPin(DIP6_GPIO_Port, DIP6_Pin);
+    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP5_GPIO_Port, DIP5_Pin);
+    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP4_GPIO_Port, DIP4_Pin);
+    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP3_GPIO_Port, DIP3_Pin);
+    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP2_GPIO_Port, DIP2_Pin);
+    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP1_GPIO_Port, DIP1_Pin);
+    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP0_GPIO_Port, DIP0_Pin);
 
-  return iID;
+    if(IDReadCount++ == 5)
+    {
+      break;
+    }
+    HAL_Delay(100);
+    HAL_RTCEx_BKUPWrite(&hrtc,RTC_BKP_DR2,iID);
+  }
+
+  return (uint8_t) iID;
 }
 
 uint32_t getBATLevel(void)
@@ -129,6 +140,9 @@ void lpsb_EnterStanbyMode(void)
 
 void lpsb_start(void)
 {
+  controlDCOn(DC12V);   /* Sensor Module power on */
+  controlDCOn(DC3V);    /* Wirelss Module power on */
+
   printUartLogo();                                         /* Print Logo */
   HAL_GPIO_WritePin(LD0_GPIO_Port, LD0_Pin, GPIO_PIN_SET); /* LD0 LED On */
 
@@ -138,8 +152,6 @@ void lpsb_start(void)
   printf("ID: 0x%x\r\n", lpsb_ID);
   printf("BAT Level: %d\r\n", lpsb_BATLevel);
 
-  controlDCOn(DC12V);   /* Sensor Module power on */
-  controlDCOn(DC3V);    /* Wirelss Module power on */
 
   uint8_t sen0 = lpsb_GetSensor(SEN0);
   uint8_t sen1 = lpsb_GetSensor(SEN1);
