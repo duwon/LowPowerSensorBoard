@@ -48,7 +48,7 @@
             "command": "C:/Program Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
             "args": [
                 "-c",
-                "port=COM10",
+                "port=COM9",
                 "br=115200",
                 "-w",
                 "${workspaceFolder}/EWARM/STM32L011/Exe/STM32L011.hex",
@@ -96,12 +96,28 @@
             },
             "dependsOn":[
                 "Build IAR",
-                "Program Flash UART"
+                "Program Flash UART",
+                "Open RS232"
             ],
             "dependsOrder": "sequence",
             "problemMatcher": [
                 "$gcc"
             ]
-        }
+        },
+        {
+            "label": "Open RS232",
+            "type": "shell",
+            "command": "C:/Users/duwon/SerialTerminal.exe -p 9 -b 115200",
+            "args": [
+                //" -p 9 -b 115200 "
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
     ]
 }

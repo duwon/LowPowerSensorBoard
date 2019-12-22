@@ -34,28 +34,41 @@ void printUartLogo(void)
 
 uint8_t getID(void)
 {
-  uint16_t iID = HAL_RTCEx_BKUPRead(&hrtc,RTC_BKP_DR2);
-  uint8_t IDReadCount = 0;
-  printf("Backup ID : %x\r\n",iID);
-  while(iID == 0)
-  {
-    iID = HAL_GPIO_ReadPin(DIP6_GPIO_Port, DIP6_Pin);
-    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP5_GPIO_Port, DIP5_Pin);
-    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP4_GPIO_Port, DIP4_Pin);
-    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP3_GPIO_Port, DIP3_Pin);
-    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP2_GPIO_Port, DIP2_Pin);
-    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP1_GPIO_Port, DIP1_Pin);
-    iID = (iID << 1) + HAL_GPIO_ReadPin(DIP0_GPIO_Port, DIP0_Pin);
+  /**
+   * 1. RTC 백업레지스터에서 ID 값 읽어 옴
+   * 2. ID 체크를 25회 이하거나 iID가 0이면
+   * 2-1. ID를 200ms 간격으로 체크
+   * 2-2. ID를 백업 레지스터에 저장
+   * 3. ID 값 리턴
+   **/
+  uint16_t rtcBackupReg = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2);
 
-    if(IDReadCount++ == 5)
+  uint8_t iID = rtcBackupReg & 0x00FF;
+  uint8_t IDReadCount = (rtcBackupReg >> 8) & 0x00ff;
+  debug_printf("DR2 : %x\r\n", rtcBackupReg);
+  if ((IDReadCount < 25) && (iID == 0))
+  {
+    while (iID == 0)
     {
-      break;
+      iID = HAL_GPIO_ReadPin(DIP6_GPIO_Port, DIP6_Pin);
+      iID = (iID << 1) + HAL_GPIO_ReadPin(DIP5_GPIO_Port, DIP5_Pin);
+      iID = (iID << 1) + HAL_GPIO_ReadPin(DIP4_GPIO_Port, DIP4_Pin);
+      iID = (iID << 1) + HAL_GPIO_ReadPin(DIP3_GPIO_Port, DIP3_Pin);
+      iID = (iID << 1) + HAL_GPIO_ReadPin(DIP2_GPIO_Port, DIP2_Pin);
+      iID = (iID << 1) + HAL_GPIO_ReadPin(DIP1_GPIO_Port, DIP1_Pin);
+      iID = (iID << 1) + HAL_GPIO_ReadPin(DIP0_GPIO_Port, DIP0_Pin);
+
+      IDReadCount++;
+      if ((IDReadCount % 5) == 0)
+      {
+        break;
+      }
+      HAL_Delay(200);
     }
-    HAL_Delay(100);
-    HAL_RTCEx_BKUPWrite(&hrtc,RTC_BKP_DR2,iID);
+    HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR2, ((uint16_t)IDReadCount << 8) + iID);
   }
 
-  return (uint8_t) iID;
+  return iID;
 }
 
 uint32_t getBATLevel(void)
@@ -116,10 +129,13 @@ void sendPacket(uint8_t id, bool sen0, bool sen1, bool sen2, uint8_t batLevel)
   uint8_t *ptr;
   ptr = (uint8_t *)&comPacket;
   for (int i = 0; i < sizeof(comPacket); i++)
-    printf("%2X ", *ptr++);
+    debug_printf("%2X ", *ptr++);
+
+  while (HAL_UART_Transmit(&hlpuart1, ptr, 9, 0xFFFF) != HAL_OK)
+    ;
 }
 
-void lpsb_EnterStanbyMode(void)
+void lpsb_EnterStanbyMode(uint32_t wakeupTime)
 {
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
   __HAL_RCC_PWR_CLK_ENABLE();      /* Enable Power Control clock */
@@ -128,48 +144,68 @@ void lpsb_EnterStanbyMode(void)
 
   if (__HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET)
   {
-    __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);      /* Clear Standby flag */
+    __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB); /* Clear Standby flag */
   }
 
-  HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);   /* Disable all used wakeup sources*/
-  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);        /* Clear all related wakeup flags*/
-  HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, WAKEUP_10SEC, RTC_WAKEUPCLOCK_RTCCLK_DIV16);  /* Enable wakeup */
+  HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);                                       /* Disable all used wakeup sources*/
+  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);                                            /* Clear all related wakeup flags*/
+  HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, wakeupTime, RTC_WAKEUPCLOCK_RTCCLK_DIV16); /* Enable wakeup */
 
   HAL_PWR_EnterSTANDBYMode();
 }
 
 void lpsb_start(void)
 {
-  controlDCOn(DC12V);   /* Sensor Module power on */
-  controlDCOn(DC3V);    /* Wirelss Module power on */
+#ifdef _DEBUG_
+  printUartLogo(); /* Print Logo */
+#endif
+  controlDCOn(DC12V); /* Sensor Module power on */
+  controlDCOn(DC3V);  /* Wirelss Module power on */
 
-  printUartLogo();                                         /* Print Logo */
   HAL_GPIO_WritePin(LD0_GPIO_Port, LD0_Pin, GPIO_PIN_SET); /* LD0 LED On */
 
   uint8_t lpsb_ID = getID(); /* Read ID. Using DIP(S1) switch */
   uint32_t lpsb_BATLevel = getBATLevel();
 
-  printf("ID: 0x%x\r\n", lpsb_ID);
-  printf("BAT Level: %d\r\n", lpsb_BATLevel);
-
+  debug_printf("ID: 0x%x\r\n", lpsb_ID);
+  debug_printf("BAT Level: %d\r\n", lpsb_BATLevel); //12V 840, 5V 295, 3.3V 220
 
   uint8_t sen0 = lpsb_GetSensor(SEN0);
   uint8_t sen1 = lpsb_GetSensor(SEN1);
   uint8_t sen2 = lpsb_GetSensor(SEN2);
 
-  printf("Sensor %d, %d, %d\r\n", sen0, sen1, sen2);      /* make packet */
+  debug_printf("Sensor %d, %d, %d\r\n", sen0, sen1, sen2); /* make packet */
 
   sendPacket(lpsb_ID, sen0, sen1, sen2, lpsb_BATLevel);
 
-  uint16_t sending_cnt = HAL_RTCEx_BKUPRead(&hrtc,RTC_BKP_DR1); /* Read bakcup register. 16bit */
-  printf("Sening Cnt : %d \r\n",sending_cnt++);
-  HAL_RTCEx_BKUPWrite(&hrtc,RTC_BKP_DR1, sending_cnt);
+  uint16_t sending_cnt = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1); /* Read bakcup register. 16bit */
+  debug_printf("Sening Cnt : %d \r\n", sending_cnt++);
+  HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, sending_cnt);
+
+  
 }
 
+uint8_t wirelss_mode = MODE_WAIT;
 void lpsb_while(void)
 {
-  HAL_Delay(1000);
-  HAL_GPIO_TogglePin(LD0_GPIO_Port, LD0_Pin); /* LD0 LED Toggle */
+  switch (wirelss_mode)
+  {
+  case MODE_SEND:
 
-  lpsb_EnterStanbyMode();
+    break;
+  case MODE_RESEND:
+    lpsb_EnterStanbyMode(WAKEUP_10SEC);
+    break;
+  case MODE_LOWPOWER:
+    lpsb_EnterStanbyMode(WAKEUP_1HOUR);
+    break;
+  case MODE_WAIT:
+    HAL_GPIO_TogglePin(LD0_GPIO_Port, LD0_Pin); /* LD0 LED Toggle */
+    HAL_Delay(100);
+    //wirelss_mode = MODE_RESEND;
+    break;
+  default:
+    break;
+  }
+
 }

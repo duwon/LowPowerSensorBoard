@@ -4,6 +4,13 @@
 #include <stdbool.h>
 #include "main.h"
 
+#define _DEBUG_
+#ifdef _DEBUG_
+#define    debug_printf(...)      printf(__VA_ARGS__)
+#else
+#define    debug_printf(...)
+#endif
+
 #define WAKEUP_1HOUR    (7149272U)
 #define WAKEUP_1MIN     (119154U)
 #define WAKEUP_30SEC    (59577U)
@@ -25,5 +32,13 @@ typedef enum{
     SENSOR1 = SEN1,
     SENSOR2 = SEN2
 } Sensor_Pin;
+
+typedef enum{
+    MODE_SEND = 0,
+    MODE_RESEND,
+    MODE_STOP,
+    MODE_LOWPOWER,
+    MODE_WAIT
+} Wireless_Mode;
 
 #endif  /* __LPSB_H__ */
