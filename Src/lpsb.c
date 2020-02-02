@@ -1,18 +1,20 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "lpsb.h"
 #include "usart.h"
 #include "gpio.h"
 #include "adc.h"
 #include "rtc.h"
 
+/* Flash 용량문제로 하기 코드 삭제
 #define FW_VERSION "0.1"
 
 #ifdef __GNUC__
 #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
 #else
 #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
-#endif /* __GNUC__ */
+#endif 
 
 PUTCHAR_PROTOTYPE
 {
@@ -20,16 +22,46 @@ PUTCHAR_PROTOTYPE
     ;
   return ch;
 }
+*/ 
 
-void printUartLogo(void)
+char hex2ascii(char hex)
 {
-  printf("\r\n");
-  printf("\r\n=============================================");
-  printf("\r\n|       (C) COPYRIGHT 2019 INPRO Inc.       |");
-  printf("\r\n|                                           |");
-  printf("\r\n|   LPSB Test   V%s   %s %s |", FW_VERSION, __DATE__, __TIME__);
-  printf("\r\n=============================================");
-  printf("\r\n\r\n");
+  if (hex < 0x0A)
+    hex += 0x30;
+  else
+    hex += 0x37;
+  return (hex);
+}
+
+void PRINT(uint8_t *tempBuffer, uint8_t len)
+{
+  /* Flash 용량 초과로 printf 대체용 함수 
+     tempBuffer 포인터 HEX 값을 ASCII로 출력
+  */
+  for (int i = 0; i < len; i++)
+  {
+    uint8_t tempAscii[2] = {hex2ascii(tempBuffer[i] >> 4), hex2ascii(tempBuffer[i] & 0xF)};
+    while (HAL_UART_Transmit(&huart2, tempAscii, 2, 0xFFFF) != HAL_OK)
+      ;
+  }
+  char tempCharBuffer[2] = {'\r', '\n'};
+  while (HAL_UART_Transmit(&huart2, (uint8_t *)&tempCharBuffer, 2, 0xFFFF) != HAL_OK)
+    ;
+}
+
+uint8_t UID[8] = {
+    0,
+};
+void getUniqueId(void)
+{
+  UID[7] = ((*(uint32_t *)ID1) + (*(uint32_t *)ID3)) >> 24;
+  UID[6] = ((*(uint32_t *)ID1) + (*(uint32_t *)ID3)) >> 16;
+  UID[5] = ((*(uint32_t *)ID1) + (*(uint32_t *)ID3)) >> 8;
+  UID[4] = ((*(uint32_t *)ID1) + (*(uint32_t *)ID3));
+  UID[3] = ((*(uint32_t *)ID2)) >> 24;
+  UID[2] = ((*(uint32_t *)ID2)) >> 16;
+  UID[1] = ((*(uint32_t *)ID2)) >> 8;
+  UID[0] = ((*(uint32_t *)ID2));
 }
 
 uint8_t getID(void)
@@ -71,7 +103,7 @@ uint8_t getID(void)
   return iID;
 }
 
-uint32_t getBATLevel(void)
+uint8_t getBATLevel(void)
 {
   if (HAL_ADCEx_Calibration_Start(&hadc, ADC_SINGLE_ENDED) != HAL_OK)
   {
@@ -80,8 +112,10 @@ uint32_t getBATLevel(void)
 
   HAL_ADC_Start(&hadc);
   HAL_ADC_PollForConversion(&hadc, 100);
+  uint32_t adc_value = HAL_ADC_GetValue(&hadc); //12V 840, 5V 295, 3.3V 220
+  adc_value -= 180;
 
-  return HAL_ADC_GetValue(&hadc);
+  return adc_value > 31 ? 31 : (uint8_t)adc_value;
 }
 
 void controlDCOn(DC_Pin pin)
@@ -100,38 +134,75 @@ GPIO_PinState lpsb_GetSensor(Sensor_Pin pin)
 }
 
 #pragma pack(push, 1)
-struct _comPacket
+typedef struct
 {
-  uint16_t stx;
-  uint8_t id;
-  uint8_t sensor0;
-  uint8_t sensor1;
-  uint8_t sensor2;
-  uint8_t batLevel;
-  uint8_t checksum;
-  uint8_t etx;
-};
+  uint8_t stx : 2; //0x02
+  uint16_t id : 10;
+  uint8_t s_idx : 2;
+  uint8_t r_idx : 2;
+  uint8_t command : 3; //Relay, Holding, Sensor,
+  uint8_t batLevel : 5;
+  uint8_t sensor0 : 1;
+  uint8_t sensor1 : 1;
+  uint8_t sensor2 : 1;
+  uint8_t etc : 1;
+  uint8_t parity : 2;
+  uint8_t etx : 2; //0x03
+} _comPacket;
 #pragma pack(pop)
 
+char make_parity(_comPacket data)
+{
+  unsigned long bit_data, bit_data_H = 0; //, bit_data_L;
+  unsigned char i, count1 = 0, count2 = 0, parity1 = 0, parity2 = 0;
+
+  memcpy(&bit_data, &data, sizeof(data));
+  bit_data_H = bit_data >> 13;
+  for (i = 0; i < 13; i++)
+    if ((bit_data_H >> i) & 0x01)
+      count2++;
+  if (count2 % 2)
+    parity2 = 1;
+  // bit_data_L=bit_data >> 2;
+  for (i = 0; i < 13; i++)
+    if ((bit_data >> i) & 0x01)
+      count1++;
+  if (count1 % 2)
+    parity1 = 1;
+  return (parity2 << 1 | parity1);
+}
+
+_comPacket comTxPacket;
 void sendPacket(uint8_t id, bool sen0, bool sen1, bool sen2, uint8_t batLevel)
 {
-  struct _comPacket comPacket;
 
-  comPacket.stx = 0x1234;
-  comPacket.id = id;
-  comPacket.sensor0 = sen0;
-  comPacket.sensor1 = sen1;
-  comPacket.sensor2 = sen2;
-  comPacket.batLevel = batLevel;
-  comPacket.checksum = 0x99;
-  comPacket.etx = 0x43;
+  comTxPacket.stx = 0x02;
+  comTxPacket.id = id;
+  comTxPacket.s_idx = 0;
+  comTxPacket.r_idx = 0;
+  comTxPacket.command = 7;
+  comTxPacket.batLevel = batLevel;
+  comTxPacket.sensor0 = sen0;
+  comTxPacket.sensor1 = sen1;
+  comTxPacket.sensor2 = sen2;
+  comTxPacket.parity = make_parity(comTxPacket);
+  comTxPacket.etx = 0x03;
 
   uint8_t *ptr;
-  ptr = (uint8_t *)&comPacket;
-  for (int i = 0; i < sizeof(comPacket); i++)
-    debug_printf("%2X ", *ptr++);
+  ptr = (uint8_t *)&comTxPacket;
+  PRINT(ptr, 4);
 
-  while (HAL_UART_Transmit(&hlpuart1, ptr, 9, 0xFFFF) != HAL_OK)
+  while (HAL_UART_Transmit(&hlpuart1, ptr, 4, 0xFFFF) != HAL_OK)
+    ;
+}
+
+void resendPacket(void)
+{
+  uint8_t *ptr;
+  ptr = (uint8_t *)&comTxPacket;
+  PRINT(ptr, 4);
+
+  while (HAL_UART_Transmit(&hlpuart1, ptr, 4, 0xFFFF) != HAL_OK)
     ;
 }
 
@@ -147,65 +218,145 @@ void lpsb_EnterStanbyMode(uint32_t wakeupTime)
     __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB); /* Clear Standby flag */
   }
 
-  HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);                                       /* Disable all used wakeup sources*/
-  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);                                            /* Clear all related wakeup flags*/
-  HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, wakeupTime, RTC_WAKEUPCLOCK_RTCCLK_DIV16); /* Enable wakeup */
+  HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);                                         /* Disable all used wakeup sources*/
+  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);                                              /* Clear all related wakeup flags*/
+  HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, wakeupTime, RTC_WAKEUPCLOCK_CK_SPRE_16BITS); /* Enable wakeup */
 
   HAL_PWR_EnterSTANDBYMode();
 }
 
+_comPacket comRxPacket; /* 200202 사용하지 않음 */
+uint8_t comRxCh; /* UART 수신 Data 저장 변수 */
 void lpsb_start(void)
 {
-#ifdef _DEBUG_
-  printUartLogo(); /* Print Logo */
-#endif
-  controlDCOn(DC12V); /* Sensor Module power on */
+  srand((*(uint32_t *)ID1) ^ (*(uint32_t *)ID2) ^ (*(uint32_t *)ID3));
+
   controlDCOn(DC3V);  /* Wirelss Module power on */
+  controlDCOn(DC12V); /* Sensor Module power on */
+  HAL_GPIO_WritePin (COM_NRST_GPIO_Port, COM_NRST_Pin, GPIO_PIN_SET); /* Pull-up wirelss module reset pin */
+  HAL_Delay(1);
+
+  uint16_t sending_cnt = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) + 1; /* Read bakcup register(16bit - wakeup count) and add 1 */
+  HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, sending_cnt);
+  PRINT((uint8_t *)&sending_cnt, 2);
 
   HAL_GPIO_WritePin(LD0_GPIO_Port, LD0_Pin, GPIO_PIN_SET); /* LD0 LED On */
 
   uint8_t lpsb_ID = getID(); /* Read ID. Using DIP(S1) switch */
-  uint32_t lpsb_BATLevel = getBATLevel();
-
-  debug_printf("ID: 0x%x\r\n", lpsb_ID);
-  debug_printf("BAT Level: %d\r\n", lpsb_BATLevel); //12V 840, 5V 295, 3.3V 220
+  uint8_t lpsb_BATLevel = getBATLevel();
 
   uint8_t sen0 = lpsb_GetSensor(SEN0);
   uint8_t sen1 = lpsb_GetSensor(SEN1);
   uint8_t sen2 = lpsb_GetSensor(SEN2);
+  controlDCOff(DC12V); /* Sensor Module power off */
 
-  debug_printf("Sensor %d, %d, %d\r\n", sen0, sen1, sen2); /* make packet */
+  HAL_UART_Receive_DMA(&hlpuart1, (uint8_t *)&comRxCh, 1);  /* Start recive DMA interrupt  */
+  HAL_UART_Receive_DMA(&huart2, (uint8_t *)&comRxCh, 1);    /* Debug UART Code. Delete */
 
-  sendPacket(lpsb_ID, sen0, sen1, sen2, lpsb_BATLevel);
+  sendPacket(lpsb_ID, sen0, sen1, sen2, lpsb_BATLevel); /* Transmit the data (ID, Sensor, Battery Level) */
 
-  uint16_t sending_cnt = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1); /* Read bakcup register. 16bit */
-  debug_printf("Sening Cnt : %d \r\n", sending_cnt++);
-  HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, sending_cnt);
 
-  
+  //getUniqueId();
+  //PRINT(UID, 8);
+  //PRINT(&lpsb_ID, 1);
+  //PRINT(&sen0,1);
+  //PRINT(&sen1,1);
+  //PRINT(&sen2,1);
+  //debug_printf("ID: 0x%x\r\n", lpsb_ID);
+  //debug_printf("BAT Level: %d\r\n", lpsb_BATLevel);
+  //debug_printf("Sensor %d, %d, %d\r\n", sen0, sen1, sen2); /* make packet */
+  //debug_printf("Sening Cnt : %d \r\n", sending_cnt++);
 }
 
 uint8_t wirelss_mode = MODE_WAIT;
+bool flag_AckOk = false;
+uint8_t countReSend = 0;
+
+//테스트 변수 200202
+uint8_t rx_buffer[10];
+uint8_t rx_buffer_index = 0;
+//테스트 변수 200202
+
 void lpsb_while(void)
 {
+  /* 1. 400ms ~ 600ms 대기 
+     2. ACK을 받았거나 NUMBER_RETRANSMISSION 만큼 재전송 했으면 MODE_LOWPOWER
+     3. 2번이 아닌 경우 MODE_RESEND 모드
+  */
   switch (wirelss_mode)
   {
   case MODE_SEND:
 
     break;
   case MODE_RESEND:
-    lpsb_EnterStanbyMode(WAKEUP_10SEC);
+    comRxPacket.stx = 0;
+    countReSend++;
+    wirelss_mode = MODE_WAIT;
+    resendPacket();
     break;
   case MODE_LOWPOWER:
-    lpsb_EnterStanbyMode(WAKEUP_1HOUR);
+    countReSend = 0;
+    lpsb_EnterStanbyMode(TX_INTERVAL_TIME);
     break;
   case MODE_WAIT:
     HAL_GPIO_TogglePin(LD0_GPIO_Port, LD0_Pin); /* LD0 LED Toggle */
-    HAL_Delay(100);
-    //wirelss_mode = MODE_RESEND;
+    HAL_Delay(400 + (rand() % 200));
+
+    //테스트코드 200202 start - 송수신 데이터 맞는지 확인
+      if (rx_buffer_index != 0)
+      {
+        PRINT(rx_buffer, 4);
+        rx_buffer_index = 0;
+
+        uint32_t *txPtr = (uint32_t *)&comTxPacket;
+        uint32_t *rxPtr = (uint32_t *)&rx_buffer;
+
+        if (txPtr[0] == rxPtr[0])
+        {
+          flag_AckOk = true;
+        }
+        else
+        {
+          flag_AckOk = false;
+        }
+        rx_buffer[0] = 0;
+      }
+    //테스트코드 200202 end
+
+    if ((countReSend == NUMBER_RETRANSMISSION) || (flag_AckOk == true)) /* If resend NUMBER_RETRANSMISSION, enter lowpower mode. */
+    {
+      wirelss_mode = MODE_LOWPOWER;
+    }
+    else /* If packets are not received, resend packet. */
+    {
+      wirelss_mode = MODE_RESEND;
+    }
     break;
+
+//테스트코드 200202 start
+  case MODE_END:
+    HAL_GPIO_TogglePin(LD0_GPIO_Port, LD0_Pin); /* LD0 LED Toggle */
+    HAL_Delay(400 + (rand() % 200));
+
+    break;
+//테스트코드 200202 end
+
   default:
     break;
   }
+}
 
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance == LPUART1) /* Wirelss Port */
+  {
+    //PRINT((uint8_t *)&comRxPacket,1);
+    rx_buffer[rx_buffer_index++] = comRxCh;
+    HAL_UART_Receive_DMA(&hlpuart1, (uint8_t *)&comRxCh, 1);
+  }
+  else if (huart->Instance == USART2) /* Debug Port */
+  {
+    HAL_UART_Transmit(&hlpuart1, (uint8_t *)&comRxCh,1,0xFFFF); /* Debug Port에서 수신된 문자를 Wirelss Port로 송신 - 테스트용 */
+    HAL_UART_Receive_DMA(&huart2, (uint8_t *)&comRxCh, 1);
+  }
 }

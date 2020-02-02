@@ -6,15 +6,26 @@
 
 #define _DEBUG_
 #ifdef _DEBUG_
-#define    debug_printf(...)      printf(__VA_ARGS__)
+#define    debug_printf(...)      //printf(__VA_ARGS__)
 #else
 #define    debug_printf(...)
 #endif
 
-#define WAKEUP_1HOUR    (7149272U)
-#define WAKEUP_1MIN     (119154U)
-#define WAKEUP_30SEC    (59577U)
-#define WAKEUP_10SEC    (19859U)
+#define WAKEUP_18HOUR     (28597088U)
+#define WAKEUP_12HOUR        (43200U)
+#define WAKEUP_1HOUR          (3600U)
+#define WAKEUP_30MIN          (1800U)
+#define WAKEUP_1MIN             (60U)
+#define WAKEUP_30SEC            (30U)
+#define WAKEUP_10SEC            (10U)
+
+ 
+#define TX_INTERVAL_TIME            WAKEUP_12HOUR
+#define NUMBER_RETRANSMISSION       2
+
+#define ID1             ( 0x1FF80050 )
+#define ID2             ( 0x1FF80054 )
+#define ID3             ( 0x1FF80064 )
 
 void lpsb_start(void);
 void lpsb_while(void);
@@ -38,7 +49,8 @@ typedef enum{
     MODE_RESEND,
     MODE_STOP,
     MODE_LOWPOWER,
-    MODE_WAIT
+    MODE_WAIT,
+    MODE_END
 } Wireless_Mode;
 
 #endif  /* __LPSB_H__ */

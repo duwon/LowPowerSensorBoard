@@ -92,11 +92,11 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_LPUART1_UART_Init();
   MX_RTC_Init();
   MX_ADC_Init();
-  MX_DMA_Init();
   /* USER CODE BEGIN 2 */
   lpsb_start();
   /* USER CODE END 2 */
